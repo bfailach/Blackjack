@@ -1,1 +1,259 @@
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Scanner;
+
+interface Carta {
+    String getPalo();
+    int getValor();
+}
+
+abstract class CartaBase implements Carta {
+    private String palo;
+
+    public CartaBase(String palo) {
+        this.palo = palo;
+    }
+
+    public String getPalo() {
+        return palo;
+    }
+}
+
+class Baraja<T extends Carta> {
+    private List<T> cartas;
+
+    public Baraja(List<T> cartas) {
+        this.cartas = cartas;
+    }
+
+    public void barajar() {
+        Collections.shuffle(cartas);
+    }
+
+    public T repartirCarta() {
+        if (cartas.isEmpty()) {
+            throw new IllegalStateException("No hay cartas en la baraja.");
+        }
+        return cartas.remove(0);
+    }
+}
+
+class CartaBlackjack extends CartaBase {
+    private int valor;
+
+    public CartaBlackjack(String palo, int valor) {
+        super(palo);
+        this.valor = valor;
+    }
+
+    public int getValor() {
+        return valor;
+    }
+}
+
+interface Jugador {
+    void recibirCarta(Carta carta);
+    int getPuntuacion();
+    void reiniciar();
+}
+
+class JugadorBlackjack implements Jugador {
+    private List<Carta> mano;
+
+    public JugadorBlackjack() {
+        setMano(new ArrayList<>());
+    }
+
+    public List<Carta> getMano() {
+        return mano;
+    }
+
+    public void setMano(List<Carta> mano) {
+        this.mano = mano;
+    }
+
+    public void recibirCarta(Carta carta) {
+        getMano().add(carta);
+    }
+
+    public int getPuntuacion() {
+        int puntuacion = 0;
+        boolean tieneAs = false;
+
+        for (Carta carta : getMano()) {
+            puntuacion += carta.getValor();
+            if (carta.getValor() == 11) {
+                tieneAs = true;
+            }
+        }
+
+        if (tieneAs && puntuacion > 21) {
+            puntuacion -= 10; 
+        }
+
+        return puntuacion;
+    }
+
+    public void reiniciar() {
+        getMano().clear();
+    }
+}
+
+
+class RepartidorBlackjack implements Jugador {
+    private List<Carta> mano;
+
+    public RepartidorBlackjack() {
+        mano = new ArrayList<>();
+    }
+
+    public void recibirCarta(Carta carta) {
+        mano.add(carta);
+    }
+
+    public int getPuntuacion() {
+        int puntuacion = 0;
+        boolean tieneAs = false;
+
+        for (Carta carta : mano) {
+            puntuacion += carta.getValor();
+            if (carta.getValor() == 11) {
+                tieneAs = true;
+            }
+        }
+
+        if (tieneAs && puntuacion > 21) {
+            puntuacion -= 10; 
+        }
+
+        return puntuacion;
+    }
+
+    public void reiniciar() {
+        mano.clear();
+    }
+
+    public void mostrarPrimeraCarta() {
+        if (!mano.isEmpty()) {
+            Carta primeraCarta = mano.get(0);
+            System.out.println("Primera carta del repartidor: " + primeraCarta.getPalo() + " " + primeraCarta.getValor());
+        }
+    }
+
+    public void mostrarCartas() {
+        System.out.println("Cartas del repartidor:");
+        for (Carta carta : mano) {
+            System.out.println(carta.getPalo() + " " + carta.getValor());
+        }
+    }
+}
+
+public class BlackjackGame {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("Bienvenido al juego de Blackjack!");
+
+            Baraja<CartaBlackjack> baraja = crearBaraja();
+            baraja.barajar();
+
+            JugadorBlackjack jugador = new JugadorBlackjack();
+            RepartidorBlackjack repartidor = new RepartidorBlackjack();
+
+            repartirCartasIniciales(baraja, jugador, repartidor);
+
+            jugarRonda(scanner, baraja, jugador, repartidor);
+
+            System.out.print("¿Quieres jugar de nuevo? (S/N): ");
+            String respuesta = scanner.next().toUpperCase();
+
+            if (!respuesta.equals("S")) {
+                break;
+            }
+        }
+    }
+
+    private static Baraja<CartaBlackjack> crearBaraja() {
+        List<CartaBlackjack> cartas = new ArrayList<>();
+
+        for (int i = 2; i <= 11; i++) {
+            for (String palo : new String[]{"Corazones", "Diamantes", "Picas", "Treboles"}) {
+                cartas.add(new CartaBlackjack(palo, i));
+            }
+        }
+
+        return new Baraja<>(cartas);
+    }
+
+    private static void repartirCartasIniciales(Baraja<CartaBlackjack> baraja, Jugador jugador, Jugador repartidor) {
+        for (int i = 0; i < 2; i++) {
+            jugador.recibirCarta(baraja.repartirCarta());
+            repartidor.recibirCarta(baraja.repartirCarta());
+        }
+
+        System.out.println("Tus cartas: " + jugador.getPuntuacion());
+        for (Carta carta : ((JugadorBlackjack) jugador).getMano()) {
+            System.out.println(carta.getPalo() + " " + carta.getValor());
+        }
+
+        ((RepartidorBlackjack) repartidor).mostrarPrimeraCarta();
+    }
+
+    private static void jugarRonda(Scanner scanner, Baraja<CartaBlackjack> baraja, Jugador jugador, Jugador repartidor) {
+        while (true) {
+            System.out.println("¿Qué quieres hacer? (Pasar/Pedir)");
+            String accion = scanner.next().toLowerCase();
+
+            if (accion.equals("pedir")) {
+                Carta carta = baraja.repartirCarta();
+                jugador.recibirCarta(carta);
+
+                System.out.println("Has recibido una carta: " + carta.getPalo() + " " + carta.getValor());
+                System.out.println("Tus cartas: " + jugador.getPuntuacion());
+                for (Carta c : ((JugadorBlackjack) jugador).getMano()) {
+                    System.out.println(c.getPalo() + " " + c.getValor());
+                }
+
+                if (jugador.getPuntuacion() > 21) {
+                    System.out.println("Te has pasado de 21. Has perdido.");
+                    break;
+                }
+            } else if (accion.equals("pasar")) {
+                while (repartidor.getPuntuacion() < 17) {
+                    Carta carta = baraja.repartirCarta();
+                    repartidor.recibirCarta(carta);
+                }
+
+                System.out.println("Tus cartas: " + jugador.getPuntuacion());
+                for (Carta c : ((JugadorBlackjack) jugador).getMano()) {
+                    System.out.println(c.getPalo() + " " + c.getValor());
+                }
+
+                ((RepartidorBlackjack) repartidor).mostrarCartas();
+
+                determinarGanador(jugador, repartidor);
+                break;
+            } else {
+                System.out.println("Acción no válida. Intenta de nuevo.");
+            }
+        }
+    }
+
+    private static void determinarGanador(Jugador jugador, Jugador repartidor) {
+        int puntuacionJugador = jugador.getPuntuacion();
+        int puntuacionRepartidor = repartidor.getPuntuacion();
+
+        if (puntuacionJugador > 21) {
+            System.out.println("Te has pasado de 21. Has perdido.");
+        } else if (puntuacionRepartidor > 21 || puntuacionJugador > puntuacionRepartidor) {
+            System.out.println("¡Has ganado!");
+        } else if (puntuacionJugador == puntuacionRepartidor) {
+            System.out.println("Empate.");
+        } else {
+            System.out.println("Has perdido.");
+        }
+    }
+}
 
